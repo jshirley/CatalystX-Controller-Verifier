@@ -16,50 +16,51 @@ use Message::Stack;
 
 =head1 SYNOPSIS
 
- package MyApp::Controller::Foo;
+    package MyApp::Controller::Foo;
 
- use Moose;
- BEGIN { extends 'Catalyst::Controller'; }
+    use Moose;
+    BEGIN { extends 'Catalyst::Controller'; }
 
- with 'CatalystX::Controller::Verifier';
+    with 'CatalystX::Controller::Verifier';
 
- __PACKAGE__->config(
-    'verifiers' => {
-        # The action name
-        'search' => {
-            # Everything here gets passed to Data::Verifier->new for the scope
-            filters => [ 'trim' ],
-            # Just a plain Data::Verifier profile here:
-            profile => {
-                page => {
-                    type => 'Int',
-                    post_check => sub { shift->get_value('page') > 0 }
-                },
-                query => {
-                    type     => 'Str',
-                    required => 1,
+    __PACKAGE__->config(
+        'verifiers' => {
+            # The action name
+            'search' => {
+                # Everything here gets passed to Data::Verifier->new for the scope
+                filters => [ 'trim' ],
+                # Just a plain Data::Verifier profile here:
+                profile => {
+                    page => {
+                        type => 'Int',
+                        post_check => sub { shift->get_value('page') > 0 }
+                    },
+                    query => {
+                        type     => 'Str',
+                        required => 1,
+                    }
                 }
-            }
+            },
         },
-    },
-    # Additional options can be passed in:
-
-    # If verification fails, detach to the 'bad_args' action
-    'detach_on_failure' => 'bad_args',
-
-    # If you want to override where the Data::Manager objects get tucked away:
-    '_verifier_stash_key' => 'a secret garden',
- );
-
- sub search : Local {
-     my ( $self, $c ) = @_;
-     my $results = $self->verify( $c );
+        # Additional options can be passed in:
+    
+        # If verification fails, detach to the 'bad_args' action
+        'detach_on_failure' => 'bad_args',
+        
+        # If you want to override where the Data::Manager objects get tucked away:
+            '_verifier_stash_key' => 'a secret garden',
+    );
+    
+    sub search : Local {
+        my ( $self, $c ) = @_;
+        my $results = $self->verify( $c );
      
-     $c->model('Search')->search(
-        $results->get_value('page') || 1,
-        $results->get_value('query')
-     );
- }
+        $c->model('Search')->search(
+            # If invalid, it will be undef here.
+            $results->get_value('page') || 1,
+            $results->get_value('query')
+        );
+    }
 
 If you run C<verify> in an action that does not have a profile, this will
 throw an exception informing you of your transgressions.
@@ -71,33 +72,33 @@ But wait, there's more! Data::Verifier allows you to also define coercions.
 So, in the above example lets say you wanted to parse your search query using
 L<Search::Query>. Piece of cake!
 
- use Search::Query;
+    use Search::Query;
+    
+    __PACKAGE__->config(
+        'verifiers' => {
+            # The action name
+            'search' => {
+                # ... include the rest from synopsis ...
+                query => {
+                    type     => 'Search::Query',
+                    required => 1,
+                    coercion => Data::Verifier::coercion(
+                        from => 'Str',
+                        via  => sub { Search::Query->parser->parse($_) }
+                    )
+                }
+            },
+        }
+    );
+    
+    sub search : Local {
+        my ( $self, $c ) = @_;
 
- __PACKAGE__->config(
-    'verifiers' => {
-        # The action name
-        'search' => {
-            # ... include the rest from synopsis ...
-            query => {
-                type     => 'Search::Query',
-                required => 1,
-                coercion => Data::Verifier::coercion(
-                    from => 'Str',
-                    via  => sub { Search::Query->parser->parse($_) }
-                )
-            }
-        },
-    }
- );
-
- sub search : Local {
-     my ( $self, $c ) = @_;
-
-     my $results = $self->verify( $c );
+        my $results = $self->verify( $c );
      
-     $results->get_value('query');          # isa Search::Query object now!
-     $results->get_original_value('query'); # Still valid
- }
+        $results->get_value('query');          # isa Search::Query object now!
+        $results->get_original_value('query'); # Still valid
+    }
 
 =head1 MESSAGES
 
@@ -105,21 +106,21 @@ Got a validation error? Well, L<Data::Manager> covers that, too.
 
 The messages method will return a L<Message::Stack> specific to that action.
 
- sub search : Local {
-     my ( $self, $c ) = @_;
+    sub search : Local {
+        my ( $self, $c ) = @_;
+    
+        my $results = $self->verify($c);
+        unless ( $results->success ) {
+            # Returns a Message::Stack for the action
+            $self->messages($c);
 
-     my $results = $self->verify($c);
-     unless ( $results->success ) {
-         # Returns a Message::Stack for the action
-         $self->messages($c);
+            # Returns a Message::Stack for the 'search' scope
+            $self->messages('search');
 
-         # Returns a Message::Stack for the 'search' scope
-         $self->messages('search');
-
-         # Returns a Message::Stack for the controller
-         $self->messages;
-     }
- }
+            # Returns a Message::Stack for the controller
+            $self->messages;
+        }
+    }
 
 =head1 LIFECYCLE
 
