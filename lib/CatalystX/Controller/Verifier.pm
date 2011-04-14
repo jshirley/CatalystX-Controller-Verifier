@@ -7,7 +7,10 @@ use Moose::Role;
 
 use Carp;
 use Scalar::Util qw/blessed refaddr/;
+
 use Data::Manager;
+use Data::Verifier;
+use Message::Stack;
 
 # ABSTRACT: Moose Role for verifying request parameters on a per action basis.
 
@@ -24,15 +27,18 @@ use Data::Manager;
     'verifiers' => {
         # The action name
         'search' => {
+            # Everything here gets passed to Data::Verifier->new for the scope
             filters => [ 'trim' ],
             # Just a plain Data::Verifier profile here:
-            page => {
-                type => 'Int',
-                post_check => sub { shift->get_value('page') > 0 }
-            },
-            query => {
-                type     => 'Str',
-                required => 1,
+            profile => {
+                page => {
+                    type => 'Int',
+                    post_check => sub { shift->get_value('page') > 0 }
+                },
+                query => {
+                    type     => 'Str',
+                    required => 1,
+                }
             }
         },
     },
@@ -124,7 +130,7 @@ blindly fast. It lives in the stash
 
 has 'verifiers' => (
     is => 'rw',
-    isa => 'HashRef[HashRef]'
+    isa => 'HashRef'
 );
 
 has '_verifier_stash_key' => (
@@ -145,7 +151,7 @@ sub verify {
     my $params = $c->req->params;
 
     # Should always be blessed, but you never know.
-    my $key = blessed $self ? refaddr $self : $self;
+    my $key = blessed( $self ) ? refaddr $self : $self;
     my $dm  = $c->stash->{ $self->_verifier_stash_key }->{ $key };
     if ( not $dm ) {
         $dm = $self->_build_data_manager;
@@ -166,20 +172,23 @@ sub verify {
 
 sub messages {
     my ( $self, $scope ) = @_;
+    my $c = die "wtf is wrong with me";
+    my $key = blessed( $self ) ? refaddr $self : $self;
     my $dm  = $c->stash->{ $self->_verifier_stash_key }->{ $key };
     # Return an empty stack if no DM
     return Message::Stack->new unless defined $dm;
 
-    if ( defined $scope and blessed $scope )
+    if ( defined $scope and blessed $scope ) {
         if ( $scope->isa('Catalyst') ) {
             $scope = $scope->action->name;
         }
-        elsif ( $scoppe->isa('Catalyst::Action') ) {
+        elsif ( $scope->isa('Catalyst::Action') ) {
             $scope = $scope->name;
         }
     }
     return $scope ? $dm->messages_for_scope($scope) : $dm->messages;
 }
+
 
 sub _build_data_manager {
     my ( $self ) = @_;
@@ -190,9 +199,7 @@ sub _build_data_manager {
         $profiles{$scope} = Data::Verifier->new( $verifiers->{$scope} );
     }
 
-    return Data::Manager->new(
-        verifiers => \%profiles
-    );
+    return Data::Manager->new( verifiers => \%profiles );
 }
 
 no Moose::Role;
