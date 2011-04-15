@@ -127,6 +127,13 @@ blindly fast. It lives in the stash
 
 =cut
 
+=attr verifiers
+
+This stores the verifier configuration, which should be a hash ref of action
+names to verification profiles.
+
+=cut
+
 has 'verifiers' => (
     is => 'rw',
     isa => 'HashRef'
@@ -138,12 +145,33 @@ has '_verifier_stash_key' => (
     default => '_verifier_stash'
 );
 
+=attr detach_on_failure
+
+This attribute is used to instruct the verify method to detach to the action
+specified. If this is unset, no detaching happens.
+
+=cut
+
 has 'detach_on_failure' => (
     is  => 'rw',
     isa => 'Str',
     clearer   => 'clear_detach_on_failure',
     predicate => 'has_detach_on_failure',
 );
+
+=method verify
+    
+    $self->verify($c);
+
+The heart of the action, the verify method takes the current context object
+and verifies based on the profiles supplied in the configuration. If the
+L<detach_on_failure> attribute is set, it will detach on an unsuccessful
+verification.
+
+Returns a L<Data::Verifier::Results> object.  Note that this can be serialized
+and tucked away in the flash for later use.
+
+=cut
 
 sub verify {
     my ( $self, $c ) = @_;
@@ -163,6 +191,14 @@ sub verify {
     return $results;
 }
 
+=method messages
+
+    $self->messages($c);
+
+Returns a L<Message::Stack> for the action in question (after verification).
+
+=cut
+
 sub messages {
     my ( $self, $c ) = @_;
     my $dm = $self->data_manager($c);
@@ -178,6 +214,15 @@ sub messages {
     }
     return $scope ? $dm->messages_for_scope($scope) : $dm->messages;
 }
+
+=method data_manager
+
+    $self->data_manager($c);
+
+Returns a L<Data::Manager> object that is used for this request (specific to
+the controller and the request).
+
+=cut
 
 sub data_manager {
     my ( $self, $c ) = @_;

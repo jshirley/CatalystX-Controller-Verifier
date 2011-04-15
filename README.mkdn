@@ -63,6 +63,45 @@ throw an exception informing you of your transgressions.
 
 But wait, there's more! Data::Verifier allows you to also define coercions.
 
+# ATTRIBUTES
+
+## verifiers
+
+This stores the verifier configuration, which should be a hash ref of action
+names to verification profiles.
+
+## detach_on_failure
+
+This attribute is used to instruct the verify method to detach to the action
+specified. If this is unset, no detaching happens.
+
+# METHODS
+
+## verify
+
+    $self->verify($c);
+
+The heart of the action, the verify method takes the current context object
+and verifies based on the profiles supplied in the configuration. If the
+[detach_on_failure](http://search.cpan.org/perldoc?detach_on_failure) attribute is set, it will detach on an unsuccessful
+verification.
+
+Returns a [Data::Verifier::Results](http://search.cpan.org/perldoc?Data::Verifier::Results) object.  Note that this can be serialized
+and tucked away in the flash for later use.
+
+## messages
+
+    $self->messages($c);
+
+Returns a [Message::Stack](http://search.cpan.org/perldoc?Message::Stack) for the action in question (after verification).
+
+## data_manager
+
+    $self->data_manager($c);
+
+Returns a [Data::Manager](http://search.cpan.org/perldoc?Data::Manager) object that is used for this request (specific to
+the controller and the request).
+
 # COERCE YOUR PARAMETERS
 
 So, in the above example lets say you wanted to parse your search query using
@@ -111,14 +150,13 @@ The messages method will return a [Message::Stack](http://search.cpan.org/perldo
 
         my $results = $self->verify($c);
         unless ( $results->success ) {
-            # Returns a Message::Stack for the action
+            # Returns a Message::Stack for the action in question
             $self->messages($c);
+        
 
-            # Returns a Message::Stack for the 'search' scope
-            $self->messages('search');
+            # You can also get the Data::Manager object 
+            $self->data_manager($c);
 
-            # Returns a Message::Stack for the controller
-            $self->messages;
         }
     }
 
