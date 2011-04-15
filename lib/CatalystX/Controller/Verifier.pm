@@ -174,8 +174,8 @@ and tucked away in the flash for later use.
 =cut
 
 sub verify {
-    my ( $self, $c ) = @_;
-    my $params = $c->req->params;
+    my ( $self, $c, $params ) = @_;
+    $params = $c->req->params if not defined $params or ref $params ne 'HASH';
 
     my $dm      = $self->data_manager($c);
     my $results = $dm->verify($c->action->name, $params);

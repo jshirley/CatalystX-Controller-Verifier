@@ -22,7 +22,8 @@ __PACKAGE__->config(
             }
         },
         # If not a hash, it finds this key
-        'verify_messages' => 'verify_me'        
+        'verify_messages' => 'verify_me',
+        'verify_override' => 'verify_me'
     }
 );
 
@@ -34,6 +35,25 @@ sub index : Local {
 sub verify_me : Local {
     my ( $self, $c ) = @_;
     my $results = $self->verify($c);
+    my $output = "success: " . $results->success . "\n";
+    foreach my $field ( sort $results->valids ) {
+        $output .= "$field: " . ($results->get_value($field)||"undef") . "\n";
+    }
+    foreach my $field ( sort $results->invalids ) {
+        $output .= "$field: invalid\n";
+    }
+    $c->res->body($output);
+}
+
+sub verify_override : Local {
+    my ( $self, $c ) = @_;
+    my $params = $c->req->params;
+    foreach my $key ( keys %{ $c->req->params } ) {
+        my $new_key = $key;
+        $new_key =~ s/^foo\.//;
+        $params->{$new_key} = $c->req->params->{$key};
+    }
+    my $results = $self->verify($c, $params);
     my $output = "success: " . $results->success . "\n";
     foreach my $field ( sort $results->valids ) {
         $output .= "$field: " . ($results->get_value($field)||"undef") . "\n";

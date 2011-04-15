@@ -4,7 +4,7 @@ use lib "$FindBin::Bin/lib";
 use Catalyst::Test 'TestApp', { default_host => 'default.com' };
 use Catalyst::Request;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
 
 content_like('/index',qr/root/,'content check');
 action_ok('/index','Action ok ok','normal action ok');
@@ -19,6 +19,7 @@ content_like('/verify_me?query=+Foo+Bar++&page=5', qr/success: 1\npage: 5\nquery
 content_like('/verify_me?query=+Foo+Bar++&page=-1', qr/success: 0\nquery: Foo Bar\npage: invalid$/,'failed optional');
 
 content_like('/verify_messages?query=+Foo+Bar++&page=-1', qr/success: 0\npage: invalid_page$/,'failed messaging');
+content_like('/verify_override?foo.page=5&foo.query=Bar', qr/success: 1\npage: 5\nquery: Bar$/,'valid variable ok ');
 # verify_messages: invalid_page
 my ( $res, $c ) = ctx_request('/verify_me_and_die?oh=noes');
 ok( @{ $c->error } == 1, 'correct error' );
