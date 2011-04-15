@@ -20,7 +20,9 @@ __PACKAGE__->config(
                     required => 1,
                 }
             }
-        }        
+        },
+        # If not a hash, it finds this key
+        'verify_messages' => 'verify_me'        
     }
 );
 
@@ -38,6 +40,18 @@ sub verify_me : Local {
     }
     foreach my $field ( sort $results->invalids ) {
         $output .= "$field: invalid\n";
+    }
+    $c->res->body($output);
+}
+
+sub verify_messages : Local {
+    my ( $self, $c ) = @_;
+    my $results = $self->verify($c);
+    my $output  = "success: " . $results->success . "\n";
+    my $stack   = $self->messages($c);
+    foreach my $message ( @{ $stack->messages } ) {
+        $output .= sprintf("%s: %s\n",
+            $message->subject, $message->msgid);
     }
     $c->res->body($output);
 }

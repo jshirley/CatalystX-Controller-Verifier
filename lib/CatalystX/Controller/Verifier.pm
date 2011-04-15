@@ -111,14 +111,12 @@ The messages method will return a L<Message::Stack> specific to that action.
     
         my $results = $self->verify($c);
         unless ( $results->success ) {
-            # Returns a Message::Stack for the action
+            # Returns a Message::Stack for the action in question
             $self->messages($c);
+        
+            # You can also get the Data::Manager object 
+            $self->data_manager($c);
 
-            # Returns a Message::Stack for the 'search' scope
-            $self->messages('search');
-
-            # Returns a Message::Stack for the controller
-            $self->messages;
         }
     }
 
@@ -151,13 +149,7 @@ sub verify {
     my ( $self, $c ) = @_;
     my $params = $c->req->params;
 
-    # Should always be blessed, but you never know.
-    my $key = blessed( $self ) ? refaddr $self : $self;
-    my $dm  = $c->stash->{ $self->_verifier_stash_key }->{ $key };
-    if ( not $dm ) {
-        $dm = $self->_build_data_manager;
-        $c->stash->{ $self->_verifier_stash_key }->{ $key } = $dm;
-    }
+    my $dm      = $self->data_manager($c);
     my $results = $dm->verify($c->action->name, $params);
 
     if ( not $results->success and $self->has_detach_on_failure ) {
@@ -172,13 +164,10 @@ sub verify {
 }
 
 sub messages {
-    my ( $self, $scope ) = @_;
-    my $c = die "wtf is wrong with me";
-    my $key = blessed( $self ) ? refaddr $self : $self;
-    my $dm  = $c->stash->{ $self->_verifier_stash_key }->{ $key };
-    # Return an empty stack if no DM
-    return Message::Stack->new unless defined $dm;
+    my ( $self, $c ) = @_;
+    my $dm = $self->data_manager($c);
 
+    my $scope = undef; # Not sure of syntax here.
     if ( defined $scope and blessed $scope ) {
         if ( $scope->isa('Catalyst') ) {
             $scope = $scope->action->name;
@@ -190,14 +179,34 @@ sub messages {
     return $scope ? $dm->messages_for_scope($scope) : $dm->messages;
 }
 
+sub data_manager {
+    my ( $self, $c ) = @_;
+
+    # Should always be blessed, but you never know.
+    my $key = blessed $self ? refaddr $self : $self;
+    my $dm  = $c->stash->{ $self->_verifier_stash_key }->{ $key };
+    if ( not $dm ) {
+        $dm = $self->_build_data_manager;
+        $c->stash->{ $self->_verifier_stash_key }->{ $key } = $dm;
+    }
+    return $dm;
+}
 
 sub _build_data_manager {
     my ( $self ) = @_;
 
     my $verifiers = $self->verifiers;
     my %profiles  = ();
+
     foreach my $scope ( keys %$verifiers ) {
-        $profiles{$scope} = Data::Verifier->new( $verifiers->{$scope} );
+        my $profile = $verifiers->{$scope};
+        if ( not ref $profile ) {
+            $profile = $verifiers->{$profile};
+        }
+        if ( not defined $profile or ref $profile ne 'HASH' ) {
+            croak "Invalid profile specified: $profile is invalid";
+        }
+        $profiles{$scope} = Data::Verifier->new( $profile );
     }
 
     return Data::Manager->new( verifiers => \%profiles );
